@@ -13,6 +13,7 @@
       <itemPath>../../P1395_Modules/ETM_SCALE.h</itemPath>
       <itemPath>../../P1395_Modules/ETM_SPI.h</itemPath>
       <itemPath>A36582.h</itemPath>
+      <itemPath>../../P1395_Modules/ETM_RC_FILTER.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -30,6 +31,7 @@
       <itemPath>../../P1395_Modules/ETM_CAN_UTILITY.s</itemPath>
       <itemPath>../../P1395_Modules/ETM_SCALE.s</itemPath>
       <itemPath>A36582.c</itemPath>
+      <itemPath>../../P1395_Modules/ETM_RC_FILTER.s</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -118,6 +120,23 @@
         <property key="additional-options-chop-files" value="false"/>
       </C30-AR>
       <C30-AS>
+        <property key="assembler-symbols" value=""/>
+        <property key="expand-macros" value="false"/>
+        <property key="extra-include-directories-for-assembler" value=""/>
+        <property key="extra-include-directories-for-preprocessor" value=""/>
+        <property key="false-conditionals" value="false"/>
+        <property key="keep-locals" value="false"/>
+        <property key="list-assembly" value="false"/>
+        <property key="list-section-info" value="false"/>
+        <property key="list-source" value="false"/>
+        <property key="list-symbols" value="false"/>
+        <property key="oXC16asm-extra-opts" value=""/>
+        <property key="oXC16asm-list-to-file" value="false"/>
+        <property key="omit-debug-dirs" value="false"/>
+        <property key="omit-forms" value="false"/>
+        <property key="preprocessor-macros" value=""/>
+        <property key="relax" value="false"/>
+        <property key="warning-level" value="emit-warnings"/>
       </C30-AS>
       <C30-LD>
         <property key="additional-options-use-response-files" value="false"/>
@@ -211,6 +230,7 @@
         <property key="UART 1" value="true"/>
         <property key="UART 2" value="true"/>
         <property key="debugoptions.useswbreakpoints" value="false"/>
+        <property key="firmware.download.all" value="false"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="false"/>

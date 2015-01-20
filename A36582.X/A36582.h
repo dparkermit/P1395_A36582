@@ -2,14 +2,7 @@
 #define __A36582_H
 
 #define __A36582
-#include <p30f6014a.h>
-#include <libpic30.h>
-#include <adc12.h>
-#include <timer.h>
-#include "ETM_CAN_PUBLIC.h"
 #include "ETM_ANALOG.h"
-#include "ETM_SPI.h"
-
 
 /*
   Hardware Module Resource Usage
@@ -27,6 +20,9 @@
 
   INT1   - Pulse Trigger - used to trigger ADC conversion and pulse sequence
   INT3   - Lowest level current latch.  Used to look for current in pulse tank (without a trigger) to detect faulty trigger
+
+
+  PIN_OUT_TP_E  - A 2us pulse is set to this test point when an arc is detected
 
 */
 
@@ -98,9 +94,9 @@
 
 
 #define A36582_TRISA_VALUE 0b0101011000000000 
-#define A36582_TRISB_VALUE 0b0010111100000111
+#define A36582_TRISB_VALUE 0b0010000000000111
 #define A36582_TRISC_VALUE 0b0000000000000000
-#define A36582_TRISD_VALUE 0b0000000000000000
+#define A36582_TRISD_VALUE 0b0000111100000000
 #define A36582_TRISF_VALUE 0b0000000000000011
 #define A36582_TRISG_VALUE 0b0100000111001100
 
@@ -116,7 +112,7 @@
 #define PIN_RESET_DETECT                      _RG14
 
 #define PIN_ADC_CONVERT                       _LATC2
-#define OLL_ADC_START_CONVERSION              0
+#define OLL_ADC_START_CONVERSION              1
 
 #define PIN_ADC_CHIP_SELECT                   _LATC4
 #define OLL_ADC_SELECT_CHIP                   0
@@ -133,8 +129,8 @@
 #define PIN_OUT_TP_F                          _LATB9
 #define PIN_OUT_TP_A                          _LATF4
 #define PIN_OUT_TP_B                          _LATF5
-#define PIN_OUT_TP_C                          _LATG0
-#define PIN_OUT_TP_D                          _LATG1
+#define PIN_OUT_TP_C                          _LATG1
+#define PIN_OUT_TP_D                          _LATG0
 
 // ------------------------ CONFIGURE ADC MODULE ------------------- //
 
@@ -149,43 +145,37 @@
 
 
 // Generic Module Settings
-#define ADPCFG_SETTING          (ENABLE_AN3_ANA & ENABLE_AN13_ANA)
+#define ADPCFG_SETTING          (ENABLE_AN2_ANA & ENABLE_AN13_ANA)
 
 // Settings for reading voltage at startup
-#define ADCON1_SETTING_STARTUP  (ADC_MODULE_ON & ADC_IDLE_STOP & ADC_FORMAT_INTG & ADC_CLK_AUTO & ADC_AUTO_SAMPLING_ON)
+#define ADCON1_SETTING_STARTUP  (ADC_MODULE_OFF & ADC_IDLE_STOP & ADC_FORMAT_INTG & ADC_CLK_AUTO & ADC_AUTO_SAMPLING_ON)
 #define ADCON2_SETTING_STARTUP  (ADC_VREF_EXT_EXT & ADC_SCAN_OFF & ADC_SAMPLES_PER_INT_16 & ADC_ALT_BUF_OFF & ADC_ALT_INPUT_OFF)
-#define ADCON3_SETTING_STARTUP  (ADC_SAMPLE_TIME_31 & ADC_CONV_CLK_SYSTEM & ADC_CONV_CLK_20Tcy)
+#define ADCON3_SETTING_STARTUP  (ADC_SAMPLE_TIME_31 & ADC_CONV_CLK_SYSTEM & ADC_CONV_CLK_10Tcy)
 #define ADCHS_SETTING_STARTUP   (ADC_CH0_POS_SAMPLEA_AN13 & ADC_CH0_NEG_SAMPLEA_VREFN & ADC_CH0_POS_SAMPLEB_AN13 & ADC_CH0_NEG_SAMPLEB_VREFN)
 
 
 // Settings for reading Magnetron Current
-#define ADCON1_SETTING_OPERATE  (ADC_MODULE_ON & ADC_IDLE_STOP & ADC_FORMAT_INTG & ADC_CLK_MANUAL & ADC_AUTO_SAMPLING_ON)
-#define ADCON2_SETTING_OPERATE  (ADC_VREF_EXT_EXT & ADC_SCAN_OFF & ADC_SAMPLES_PER_INT_8 & ADC_ALT_BUF_ON & ADC_ALT_INPUT_OFF)
-#define ADCON3_SETTING_OPERATE  (ADC_SAMPLE_TIME_0 & ADC_CONV_CLK_SYSTEM & ADC_CONV_CLK_9Tcy2)
-#define ADCHS_SETTING_OPERATE   (ADC_CH0_POS_SAMPLEA_AN3 & ADC_CH0_NEG_SAMPLEA_VREFN & ADC_CH0_POS_SAMPLEB_AN3 & ADC_CH0_NEG_SAMPLEB_VREFN)
-
-
-//#define ADCSSL_SETTING_OPERATE  (SKIP_SCAN_AN0 & SKIP_SCAN_AN1 & SKIP_SCAN_AN2 & SKIP_SCAN_AN7 & SKIP_SCAN_AN8 & SKIP_SCAN_AN9 & SKIP_SCAN_AN10 & SKIP_SCAN_AN11 & SKIP_SCAN_AN12 & SKIP_SCAN_AN13 & SKIP_SCAN_AN14 & SKIP_SCAN_AN15)
-//#define ADCSSL_SETTING_STARTUP  (SKIP_SCAN_AN0 & SKIP_SCAN_AN1 & SKIP_SCAN_AN2 & SKIP_SCAN_AN3 & SKIP_SCAN_AN4 & SKIP_SCAN_AN5 & SKIP_SCAN_AN6 &  SKIP_SCAN_AN7 & SKIP_SCAN_AN8 & SKIP_SCAN_AN9 & SKIP_SCAN_AN10 & SKIP_SCAN_AN11)
-
+#define ADCON1_SETTING_OPERATE  (ADC_MODULE_OFF & ADC_IDLE_STOP & ADC_FORMAT_INTG & ADC_CLK_MANUAL & ADC_AUTO_SAMPLING_ON)
+#define ADCON2_SETTING_OPERATE  (ADC_VREF_EXT_EXT & ADC_SCAN_OFF & ADC_SAMPLES_PER_INT_1 & ADC_ALT_BUF_OFF & ADC_ALT_INPUT_OFF)
+#define ADCON3_SETTING_OPERATE  (ADC_SAMPLE_TIME_0 & ADC_CONV_CLK_SYSTEM & ADC_CONV_CLK_4Tcy)
+#define ADCHS_SETTING_OPERATE   (ADC_CH0_POS_SAMPLEA_AN2 & ADC_CH0_NEG_SAMPLEA_VREFN & ADC_CH0_POS_SAMPLEB_AN2 & ADC_CH0_NEG_SAMPLEB_VREFN)
 
 
 /* 
    TMR4 Configuration
    Timer4 is used to see if the time between triggers is too short
-   With 10Mhz Clock, x8 multiplier will yield max period of 17.7mS, 2.71uS per tick
+   With 10Mhz Clock, x8 multiplier will yield max period of 52.4mS, 800nS per tick
 */
 
 #define MINIMUM_PULSE_PERIOD_US   2200
 
-#define T4CON_VALUE                    (T4_ON & T5_IDLE_CON & T5_GATE_OFF & T5_PS_1_8 & T4_SOURCE_INT)
-#define MINIMUM_PULSE_PERIOD_T4        (FCY_CLK_MHZ*MINIMUM_PULSE_PERIOD_US/8)
+#define T4CON_VALUE                    (T4_ON & T5_IDLE_CON & T5_GATE_OFF & T5_PS_1_8 & T4_SOURCE_INT & T4_32BIT_MODE_OFF)
+#define MINIMUM_PULSE_PERIOD_T4        2750 //(FCY_CLK_MHZ*MINIMUM_PULSE_PERIOD_US/8)
 
 /* 
    TMR5 Configuration
    Timer5 - Used for 10msTicToc
    Period should be set to 10mS
-   With 10Mhz Clock, x8 multiplier will yield max period of 17.7mS, 2.71uS per tick
 */
 
 #define T5CON_VALUE                    (T5_ON & T5_IDLE_CON & T5_GATE_OFF & T5_PS_1_8 & T5_SOURCE_INT)
@@ -211,12 +201,15 @@
 
 
 typedef struct {
-  AnalogInput analog_input_magnetron_current_internal_adc;               // 10mA per LSB
-  AnalogInput analog_input_magnetron_current_external_adc;               // 10mA per LSB
-  AnalogInput analog_input_5v_mon;                                       // 1mV per LSB
+  AnalogInput imag_internal_adc;               // 10mA per LSB
+  AnalogInput imag_external_adc;               // 10mA per LSB
+  AnalogInput analog_input_5v_mon;             // 1mV per LSB
 
-  unsigned int filtered_high_energy_pulse_current;
-  unsigned int filtered_low_energy_pulse_current;
+  unsigned int filt_int_adc_high;
+  unsigned int filt_int_adc_low;
+
+  unsigned int filt_ext_adc_high;
+  unsigned int filt_ext_adc_low;
 
   unsigned int control_state;
 
@@ -248,23 +241,6 @@ typedef struct {
 } MagnetronCurrentMonitorGlobalData;
 
 extern MagnetronCurrentMonitorGlobalData global_data_A36582;
-
-// The fast arc counter will shutdown with more than 50 arcs in 800 pulses
-#define ARC_COUNTER_FAST_PERIOD                   800
-#define ARC_COUNTER_FAST_MAX_ARCS                 50
-#define ARC_COUNTER_FAST_DECREMENT_INTERVAL       (ARC_COUNTER_FAST_PERIOD / ARC_COUNTER_FAST_MAX_ARCS)
-
-
-
-// The slow arc counter will shutdown with more than 100 arcs in 24000 pulses
-#define ARC_COUNTER_SLOW_PERIOD                   24000
-#define ARC_COUNTER_SLOW_MAX_ARCS                 100 
-#define ARC_COUNTER_SLOW_DECREMENT_INTERVAL       (ARC_COUNTER_SLOW_PERIOD / ARC_COUNTER_SLOW_MAX_ARCS)
-
-
-
-// The consecutive arc counter will shut down with more than 15 consecutive arcs
-#define ARC_COUNTER_CONSECUTIVE_MAX               15
 
 
 
