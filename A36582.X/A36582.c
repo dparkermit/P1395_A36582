@@ -33,6 +33,8 @@ void DoA36582(void);
 void DoStartupLEDs(void);
 void DoPostPulseProcess(void);
 void ResetPulseLatches(void);
+void SavePulseCountersToEEProm(void);
+unsigned int MakeCountCRC(unsigned int* data_ptr);
 
 MagnetronCurrentMonitorGlobalData global_data_A36582;
 
@@ -137,6 +139,12 @@ void DoA36582(void) {
       global_data_A36582.led_flash_counter++;
     }
     
+    // Run at 1 second interval
+    global_data_A36582.millisecond_counter += 10;
+    if (global_data_A36582.millisecond_counter >= 1000) {
+      global_data_A36582.millisecond_counter = 0;
+      SavePulseCountersToEEProm();
+    }
     
     
     local_debug_data.debug_0 = global_data_A36582.fast_arc_counter;
@@ -185,6 +193,8 @@ void DoStartupLEDs(void) {
 
 
 void InitializeA36582(void) {
+  unsigned int pulse_data[7];
+
   // Initialize the status register and load the inhibit and fault masks
   _FAULT_REGISTER = 0;
   _CONTROL_REGISTER = 0;
@@ -297,9 +307,81 @@ void InitializeA36582(void) {
   _ADON = 1;
   _SAMP = 1;
 
+
+  // Read Data from EEPROM
+  ETMEEPromReadPage(&U17_M24LC64F, PULSE_COUNT_REGISTER_A, 7, &pulse_data[0]);
+  
+  // If the data checks out, update with data
+  if (pulse_data[6] == MakeCountCRC(&pulse_data[0])) {
+    global_data_A36582.arc_total = *(unsigned long*)&pulse_data[0];
+    global_data_A36582.pulse_total = *(unsigned long long*)&pulse_data[2];
+    if ((global_data_A36582.arc_total == 0xFFFFFFFF) || global_data_A36582.pulse_total == 0xFFFFFFFFFFFFFFFF) {
+      global_data_A36582.arc_total = 0;
+      global_data_A36582.pulse_total = 0;
+    }
+  }
+  // DPARKER, check the B register
+  
+  
   // Run a dummy conversion
-  __delay32(400);
   _SAMP = 0;
+
+}
+
+unsigned int MakeCountCRC(unsigned int* data_ptr) {
+  unsigned int crc;
+  crc = *data_ptr;
+  data_ptr++;
+  crc += *data_ptr;
+  data_ptr++;
+  crc += *data_ptr;
+  data_ptr++;
+  crc += *data_ptr;
+  data_ptr++;
+  crc += *data_ptr;
+  data_ptr++;
+  crc += *data_ptr;
+
+  return crc;
+}
+
+void SavePulseCountersToEEProm(void) {
+  unsigned int test_data[7];
+
+  global_data_A36582.count_crc = MakeCountCRC((unsigned int*)&global_data_A36582.arc_total);
+  
+  if(global_data_A36582.next_register) {
+    // Write to "Page A" 
+
+    // Write Data to EEPROM
+    ETMEEPromWritePage(&U17_M24LC64F, PULSE_COUNT_REGISTER_A, 7, (unsigned int*)&global_data_A36582.arc_total);
+
+    // Read Data from EEPROM
+    ETMEEPromReadPage(&U17_M24LC64F, PULSE_COUNT_REGISTER_A, 7, &test_data[0]);
+    
+    // If the data checks out, update next register
+    if (test_data[6] == MakeCountCRC(&test_data[0])) {
+      global_data_A36582.next_register = 0;
+    }
+ 
+  } else  {
+    // Write to "Page B"
+
+    // Write Data to EEPROM
+    ETMEEPromWritePage(&U17_M24LC64F, PULSE_COUNT_REGISTER_B, 7, (unsigned int*)&global_data_A36582.arc_total);
+    
+    // Read Data from EEPROM
+    ETMEEPromReadPage(&U17_M24LC64F, PULSE_COUNT_REGISTER_B, 7, &test_data[0]);
+    
+    // If the data checks out, update next register
+    if (test_data[6] == MakeCountCRC(&test_data[0])) {
+      global_data_A36582.next_register = 1;
+    }    
+    
+  }
+    
+  
+
 
 }
 
@@ -321,6 +403,7 @@ void DoPostPulseProcess(void) {
   // Read the analog current level from internal ADC
   global_data_A36582.imag_internal_adc.filtered_adc_reading = (ADCBUF0 << 4);
   dan_test_int = global_data_A36582.imag_internal_adc.filtered_adc_reading;
+  //_LATF6 = 0;
 
   // Scale the readings
   ETMAnalogScaleCalibrateADCReading(&global_data_A36582.imag_internal_adc);
@@ -414,15 +497,13 @@ void DoPostPulseProcess(void) {
     }
   }
 
-  
-
-
   // Reset the Latches
   ResetPulseLatches();
 	
   ETMCanLogCustomPacketC();  // This is the data log packet that contains the data for the previous pulse
-  
 }
+
+
 
 void ResetPulseLatches(void) {
   PIN_PULSE_LATCH_RESET = OLL_RESET_LATCHES;
@@ -441,6 +522,7 @@ void __attribute__((interrupt, shadow, no_auto_psv)) _INT1Interrupt(void) {
   _SAMP = 0;  // There Appears to be a delay of ~3 ADC Clocks between this and the sample being held (and the conversion starting)
               // I think the ADC clock is running if the ADC is on, therefor we have a sampleing error of up to +/- 1/2 ADC Clock.  Ugh!!!
   PIN_OUT_TP_F = 1;
+  //_LATF6 = 1;
   // DPARKER delay until we are in the middle of the current pulse to sample
   Nop();
   Nop();

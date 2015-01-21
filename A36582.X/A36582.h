@@ -218,8 +218,10 @@ typedef struct {
   unsigned int arc_this_hv_on;
   unsigned long pulse_this_hv_on;
 
-  unsigned long arc_total;          // When pulsing these need to get written to EEPROM periodically 
+  unsigned long      arc_total;     // When pulsing these need to get written to EEPROM periodically 
   unsigned long long pulse_total;   // Need to switch to FRAM part so that we can write once per second continuously
+  unsigned int       count_crc;
+  unsigned int       next_register;
   
   unsigned int fast_arc_counter;
   unsigned int slow_arc_counter;
@@ -237,11 +239,14 @@ typedef struct {
   unsigned int pulse_with_no_trigger_counter;
   
   unsigned int led_flash_counter;
+  unsigned int millisecond_counter;
 
 } MagnetronCurrentMonitorGlobalData;
 
 extern MagnetronCurrentMonitorGlobalData global_data_A36582;
 
+#define PULSE_COUNT_REGISTER_A            0x20
+#define PULSE_COUNT_REGISTER_B            0x21
 
 
 #endif
