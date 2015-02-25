@@ -5,15 +5,16 @@
                    displayName="Header Files"
                    projectFiles="true">
       <itemPath>../../P1395_Modules/ETM_ANALOG.h</itemPath>
-      <itemPath>../../P1395_Modules/ETM_CAN.h</itemPath>
-      <itemPath>../../P1395_Modules/ETM_CAN_PUBLIC.h</itemPath>
-      <itemPath>../../P1395_Modules/ETM_CAN_USER_CONFIG.h</itemPath>
       <itemPath>../../P1395_Modules/ETM_EEPROM.h</itemPath>
       <itemPath>../../P1395_Modules/ETM_I2C.h</itemPath>
       <itemPath>../../P1395_Modules/ETM_SCALE.h</itemPath>
       <itemPath>../../P1395_Modules/ETM_SPI.h</itemPath>
       <itemPath>A36582.h</itemPath>
       <itemPath>../../P1395_Modules/ETM_RC_FILTER.h</itemPath>
+      <itemPath>../../P1395_Modules/P1395_CAN_CORE.h</itemPath>
+      <itemPath>../../P1395_Modules/P1395_CAN_CORE_PRIVATE.h</itemPath>
+      <itemPath>../../P1395_Modules/P1395_CAN_SLAVE.h</itemPath>
+      <itemPath>../../P1395_Modules/P1395_MODULE_CONFIG.h</itemPath>
     </logicalFolder>
     <logicalFolder name="LinkerScript"
                    displayName="Linker Files"
@@ -23,15 +24,15 @@
                    displayName="Source Files"
                    projectFiles="true">
       <itemPath>../../P1395_Modules/ETM_ANALOG.c</itemPath>
-      <itemPath>../../P1395_Modules/ETM_CAN.c</itemPath>
-      <itemPath>../../P1395_Modules/ETM_CAN_USER_CONFIG.c</itemPath>
-      <itemPath>../../P1395_Modules/ETM_EEPROM.c</itemPath>
       <itemPath>../../P1395_Modules/ETM_I2C.c</itemPath>
       <itemPath>../../P1395_Modules/ETM_SPI.c</itemPath>
       <itemPath>../../P1395_Modules/ETM_CAN_UTILITY.s</itemPath>
       <itemPath>../../P1395_Modules/ETM_SCALE.s</itemPath>
       <itemPath>A36582.c</itemPath>
       <itemPath>../../P1395_Modules/ETM_RC_FILTER.s</itemPath>
+      <itemPath>../../P1395_Modules/ETM_EEPROM_EXTERNAL.c</itemPath>
+      <itemPath>../../P1395_Modules/P1395_CAN_SLAVE.c</itemPath>
+      <itemPath>../../P1395_Modules/P1395_CAN_SLAVE_BOARD_SPECIFIC.c</itemPath>
     </logicalFolder>
     <logicalFolder name="ExternalFiles"
                    displayName="Important Files"
@@ -190,7 +191,7 @@
         <property key="fast-math" value="false"/>
         <property key="generic-16-bit" value="false"/>
         <property key="legacy-libc" value="false"/>
-        <property key="oXC16glb-macros" value=""/>
+        <property key="oXC16glb-macros" value="__A36582"/>
         <property key="output-file-format" value="elf"/>
         <property key="relaxed-math" value="false"/>
         <property key="save-temps" value="false"/>
@@ -230,7 +231,6 @@
         <property key="UART 1" value="true"/>
         <property key="UART 2" value="true"/>
         <property key="debugoptions.useswbreakpoints" value="false"/>
-        <property key="firmware.download.all" value="false"/>
         <property key="hwtoolclock.frcindebug" value="false"/>
         <property key="memories.aux" value="false"/>
         <property key="memories.bootflash" value="false"/>

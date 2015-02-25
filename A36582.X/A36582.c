@@ -2,16 +2,16 @@
 
 #include <libpic30.h>
 #include <adc12.h>
-#include <p30f6014a.h>
+#include <xc.h>
 #include <timer.h>
 #include "A36582.h"
 #include "FIRMWARE_VERSION.h"
 #include "ETM_EEPROM.h"
 #include "A36582_SETTINGS.h"
-#include "ETM_CAN_PUBLIC.h"
 #include "ETM_SPI.h"
 #include "ETM_RC_FILTER.h"
-
+#include "P1395_MODULE_CONFIG.h"
+#include "P1395_CAN_SLAVE.h"
 
 _FOSC(ECIO & CSW_FSCM_OFF); 
 //_FWDT(WDT_ON & WDTPSA_64 & WDTPSB_8);  // 1 Second watchdog timer 
@@ -37,8 +37,6 @@ void SavePulseCountersToEEProm(void);
 unsigned int MakeCountCRC(unsigned int* data_ptr);
 
 MagnetronCurrentMonitorGlobalData global_data_A36582;
-
-ETMEEProm U17_M24LC64F;
 
 
 int main(void) {
@@ -79,6 +77,9 @@ void DoStateMachine(void) {
     global_data_A36582.consecutive_arc_counter = 0;
     global_data_A36582.pulse_counter_fast = 0;
     global_data_A36582.pulse_counter_slow = 0;
+    global_data_A36582.false_trigger_counter = 0;
+    global_data_A36582.under_current_arc_count = 0;
+    global_data_A36582.over_current_arc_count = 0;
     _FAULT_REGISTER = 0;
     _CONTROL_NOT_READY = 0;
     while (global_data_A36582.control_state == STATE_OPERATE) {
@@ -119,7 +120,7 @@ void DoStateMachine(void) {
 
 
 void DoA36582(void) {
-  ETMCanDoCan();
+  ETMCanSlaveDoCan();
   
   if (_CONTROL_CAN_COM_LOSS) {
     _FAULT_CAN_COMMUNICATION_LATCHED = 1;
@@ -156,7 +157,43 @@ void DoA36582(void) {
     local_debug_data.debug_7 = global_data_A36582.filt_ext_adc_high;
     local_debug_data.debug_8 = global_data_A36582.imag_external_adc.reading_scaled_and_calibrated;
     local_debug_data.debug_9 = global_data_A36582.imag_internal_adc.reading_scaled_and_calibrated;
+    local_debug_data.debug_A = global_data_A36582.pulse_with_no_trigger_counter;
+    local_debug_data.debug_B = global_data_A36582.minimum_pulse_period_fault_count;
+    local_debug_data.debug_C = global_data_A36582.false_trigger_counter;
+    local_debug_data.debug_D = global_data_A36582.over_current_arc_count;
+    local_debug_data.debug_E = global_data_A36582.under_current_arc_count;
+    
+
+    // Update tthe false trigger counter
+    global_data_A36582.false_trigger_decrement_counter++;
+    if (global_data_A36582.false_trigger_decrement_counter >= FALSE_TRIGGER_DECREMENT_10_MS_UNITS) {
+      global_data_A36582.false_trigger_decrement_counter = 0;
+      if (global_data_A36582.false_trigger_counter) {
+	global_data_A36582.false_trigger_counter--;
+      }
+    }
+    if (global_data_A36582.false_trigger_counter >= FALSE_TRIGGERS_FAULT_LEVEL) {
+      _FAULT_FALSE_TRIGGER = 1;
+    }
   }
+  
+
+  // DPARKER - THIS DID NOT WORK - IT RESET THE LATCHES WHEN THEY SHOULD NOT BE AND CAUSED FALSE ARCS TO BE DETECTED
+  // However we may need some way to reset the pulse latches if they are set for a long time
+  // If this happens, INT3 will not trigger and we will loose the ability to detect pulses without a trigger
+  // Perhaps another counter that if there has been no trigger for the previous second, then if the latches are set they are cleared.
+  
+  // Alternatively we could check the state of the latches inside the interrupt.  That way the checks can't be broken by this call
+  
+  /*
+  // Reset the pulse latches if they are set and it has been more than 2ms since the last pulse
+  if ((TMR4 > TIMER_4_TIME_2_MILLISECONDS) && (PIN_PULSE_OVER_CURRENT_LATCH_4 == ILL_LATCH_SET)) {
+
+    ResetPulseLatches();
+    // DPARKER. why doesn't this clear the fault latches before a fault latch check.  You would think that the TMR4 check would prevent this.
+  // Perhaps adding a long delay and then reckecking TMR4 before the ResetPulseLatches would fix the problem?
+  }
+  */
 }
 
 
@@ -214,6 +251,7 @@ void InitializeA36582(void) {
   // Configure the "False Trigger" Interrupt
   _INT3IP = 6; // This must be the highest priority interrupt
   _INT3EP = 0; // Positive Transition
+  _INT3IE = 1;
 
   // By Default, the can module will set it's interrupt Priority to 4
   
@@ -244,11 +282,11 @@ void InitializeA36582(void) {
 
   
   // Initialize the External EEprom
-  ETMEEPromConfigureDevice(&U17_M24LC64F, EEPROM_I2C_ADDRESS_0, I2C_PORT, EEPROM_SIZE_8K_BYTES, FCY_CLK, ETM_I2C_400K_BAUD);
+  ETMEEPromConfigureExternalDevice(EEPROM_SIZE_8K_BYTES, FCY_CLK, 400000, EEPROM_I2C_ADDRESS_0, 1);
 
 
   // Initialize the Can module
-  ETMCanInitialize();
+  ETMCanSlaveInitialize();
 
 
   // Initialize the Analog input data structures
@@ -289,12 +327,14 @@ void InitializeA36582(void) {
 
   if (ETMAnalogCheckOverAbsolute(&global_data_A36582.analog_input_5v_mon)) {
     _CONTROL_SELF_CHECK_ERROR = 1;
-    ETMCanSetBit(&local_debug_data.self_test_result_register, SELF_TEST_5V_OV);
+    //ETMCanSlaveSetBit(&local_debug_data.self_test_result_register, SELF_TEST_5V_OV);
+    // DPARKER use the self test bits
   }
   
   if (ETMAnalogCheckUnderAbsolute(&global_data_A36582.analog_input_5v_mon)) {
     _CONTROL_SELF_CHECK_ERROR = 1;
-    ETMCanSetBit(&local_debug_data.self_test_result_register, SELF_TEST_5V_UV);
+    //ETMCanSlaveSetBit(&local_debug_data.self_test_result_register, SELF_TEST_5V_UV);
+    // DPARKER use the self test bits
   }
   
   ADCON1 = ADCON1_SETTING_OPERATE;     // Configure the high speed ADC module based on H file parameters
@@ -309,7 +349,7 @@ void InitializeA36582(void) {
 
 
   // Read Data from EEPROM
-  ETMEEPromReadPage(&U17_M24LC64F, PULSE_COUNT_REGISTER_A, 7, &pulse_data[0]);
+  ETMEEPromReadPage(PULSE_COUNT_REGISTER_A, 7, &pulse_data[0]);
   
   // If the data checks out, update with data
   if (pulse_data[6] == MakeCountCRC(&pulse_data[0])) {
@@ -354,10 +394,10 @@ void SavePulseCountersToEEProm(void) {
     // Write to "Page A" 
 
     // Write Data to EEPROM
-    ETMEEPromWritePage(&U17_M24LC64F, PULSE_COUNT_REGISTER_A, 7, (unsigned int*)&global_data_A36582.arc_total);
+    ETMEEPromWritePage(PULSE_COUNT_REGISTER_A, 7, (unsigned int*)&global_data_A36582.arc_total);
 
     // Read Data from EEPROM
-    ETMEEPromReadPage(&U17_M24LC64F, PULSE_COUNT_REGISTER_A, 7, &test_data[0]);
+    ETMEEPromReadPage(PULSE_COUNT_REGISTER_A, 7, &test_data[0]);
     
     // If the data checks out, update next register
     if (test_data[6] == MakeCountCRC(&test_data[0])) {
@@ -368,10 +408,10 @@ void SavePulseCountersToEEProm(void) {
     // Write to "Page B"
 
     // Write Data to EEPROM
-    ETMEEPromWritePage(&U17_M24LC64F, PULSE_COUNT_REGISTER_B, 7, (unsigned int*)&global_data_A36582.arc_total);
+    ETMEEPromWritePage(PULSE_COUNT_REGISTER_B, 7, (unsigned int*)&global_data_A36582.arc_total);
     
     // Read Data from EEPROM
-    ETMEEPromReadPage(&U17_M24LC64F, PULSE_COUNT_REGISTER_B, 7, &test_data[0]);
+    ETMEEPromReadPage(PULSE_COUNT_REGISTER_B, 7, &test_data[0]);
     
     // If the data checks out, update next register
     if (test_data[6] == MakeCountCRC(&test_data[0])) {
@@ -415,12 +455,19 @@ void DoPostPulseProcess(void) {
 
   if ((PIN_PULSE_OVER_CURRENT_LATCH_1 == ILL_LATCH_SET) || (PIN_PULSE_OVER_CURRENT_LATCH_4 != ILL_LATCH_SET)) {
     // The current after the trigger was too high or too low
+    PIN_OUT_TP_C = 1;
     _STATUS_ARC_DETECTED = 1;
-    if (PIN_OUT_TP_C) {
-      PIN_OUT_TP_C = 0;
-    } else {
-      PIN_OUT_TP_C = 1;
+   
+    if (PIN_PULSE_OVER_CURRENT_LATCH_1 == ILL_LATCH_SET) {
+      global_data_A36582.over_current_arc_count++;
     }
+    if (PIN_PULSE_OVER_CURRENT_LATCH_4 != ILL_LATCH_SET) {
+      global_data_A36582.under_current_arc_count++;
+    }
+
+    __delay32(500);  // 50us Trigger pulse that we had an arc
+    PIN_OUT_TP_C = 0;
+    
   }
 
   // DPARKER Consider checking the analog current reading to also look for arc
@@ -500,7 +547,7 @@ void DoPostPulseProcess(void) {
   // Reset the Latches
   ResetPulseLatches();
 	
-  ETMCanLogCustomPacketC();  // This is the data log packet that contains the data for the previous pulse
+  ETMCanSlaveLogCustomPacketC();  // This is the data log packet that contains the data for the previous pulse
 }
 
 
@@ -517,6 +564,17 @@ void __attribute__((interrupt, shadow, no_auto_psv)) _INT1Interrupt(void) {
   /*
     A sample trigger has been received
   */ 
+
+  Nop(); //100ns
+  Nop(); //200ns
+  Nop(); //300ns
+  Nop(); //400ns
+  Nop(); //500ns
+  Nop(); //600ns
+  Nop(); //700ns
+  Nop(); //800ns
+  Nop(); //900ns
+  Nop(); //1000ns
   
   // Trigger the internal ADC to start conversion
   _SAMP = 0;  // There Appears to be a delay of ~3 ADC Clocks between this and the sample being held (and the conversion starting)
@@ -564,8 +622,12 @@ void __attribute__((interrupt, shadow, no_auto_psv)) _INT1Interrupt(void) {
 */
 void __attribute__((interrupt, no_auto_psv)) _INT3Interrupt(void) {
   // There was trigger on INT3
-  if (_T4IF || TMR4 > 20) {
+  _INT3IF = 0;
+
+  if (_T4IF || (TMR4 > 20)) {
     global_data_A36582.pulse_with_no_trigger_counter++;
+    global_data_A36582.false_trigger_counter++;
+    ResetPulseLatches();
   }   
 }
 

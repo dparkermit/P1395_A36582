@@ -22,7 +22,9 @@
 // The consecutive arc counter will shut down with more than 15 consecutive arcs
 #define ARC_COUNTER_CONSECUTIVE_MAX               15
 
-
+// False Trigger Configuration
+#define FALSE_TRIGGER_DECREMENT_10_MS_UNITS       100 // The false trigger counter is decremented once per second
+#define FALSE_TRIGGERS_FAULT_LEVEL                10  // The counter must reach 10 to trigger a fault.
 
 
 

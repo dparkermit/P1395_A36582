@@ -1,7 +1,6 @@
 #ifndef __A36582_H
 #define __A36582_H
 
-#define __A36582
 #include "ETM_ANALOG.h"
 
 /*
@@ -172,6 +171,8 @@
 #define T4CON_VALUE                    (T4_ON & T4_IDLE_CON & T4_GATE_OFF & T4_PS_1_8 & T4_SOURCE_INT & T4_32BIT_MODE_OFF)
 #define MINIMUM_PULSE_PERIOD_T4        2750 //(FCY_CLK_MHZ*MINIMUM_PULSE_PERIOD_US/8)
 
+#define TIMER_4_TIME_2_MILLISECONDS    2500
+
 /* 
    TMR5 Configuration
    Timer5 - Used for 10msTicToc
@@ -198,7 +199,7 @@
 #define _FAULT_ARC_FAST                                 _FAULT_1
 #define _FAULT_ARC_CONTINUOUS                           _FAULT_2
 #define _FAULT_CAN_COMMUNICATION_LATCHED                _FAULT_3
-
+#define _FAULT_FALSE_TRIGGER                            _FAULT_4
 
 typedef struct {
   AnalogInput imag_internal_adc;               // 10mA per LSB
@@ -240,6 +241,12 @@ typedef struct {
   
   unsigned int led_flash_counter;
   unsigned int millisecond_counter;
+
+  unsigned int false_trigger_decrement_counter;
+  unsigned int false_trigger_counter;
+
+  unsigned int over_current_arc_count;
+  unsigned int under_current_arc_count;
 
 } MagnetronCurrentMonitorGlobalData;
 
