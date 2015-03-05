@@ -122,6 +122,11 @@ void DoStateMachine(void) {
 void DoA36582(void) {
   ETMCanSlaveDoCan();
   
+  if (_SYNC_CONTROL_CLEAR_DEBUG_DATA) {
+    global_data_A36582.arc_this_hv_on = 0;
+    global_data_A36582.pulse_this_hv_on = 0;
+  }
+
   if (_CONTROL_CAN_COM_LOSS) {
     _FAULT_CAN_COMMUNICATION_LATCHED = 1;
   }
