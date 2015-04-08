@@ -551,8 +551,10 @@ void DoPostPulseProcess(void) {
 
   // Reset the Latches
   ResetPulseLatches();
-	
-  ETMCanSlaveLogCustomPacketC();  // This is the data log packet that contains the data for the previous pulse
+  
+  if (_SYNC_CONTROL_HIGH_SPEED_LOGGING) {
+    ETMCanSlaveLogCustomPacketC();  // This is the data log packet that contains the data for the previous pulse
+  }
 }
 
 
@@ -634,6 +636,15 @@ void __attribute__((interrupt, no_auto_psv)) _INT3Interrupt(void) {
     global_data_A36582.false_trigger_counter++;
     ResetPulseLatches();
   }   
+}
+
+
+void __attribute__((interrupt, no_auto_psv)) _DefaultInterrupt(void) {
+  // Clearly should not get here without a major problem occuring
+  // DPARKER do something to save the state into a RAM location that is not re-initialized and then reset
+  Nop();
+  Nop();
+  __asm__ ("Reset");
 }
 
 
