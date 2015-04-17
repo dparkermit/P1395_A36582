@@ -85,8 +85,8 @@ void DoStateMachine(void) {
     while (global_data_A36582.control_state == STATE_OPERATE) {
       DoA36582();
       if (global_data_A36582.sample_complete) {
-	global_data_A36582.sample_complete = 0;
 	DoPostPulseProcess();
+	global_data_A36582.sample_complete = 0;
       }
 
       if (_FAULT_REGISTER) {
@@ -250,7 +250,7 @@ void InitializeA36582(void) {
 
   // Configure Trigger Interrupt
   _INT1IP = 7; // This must be the highest priority interrupt
-  _INT1EP = 1; // Negative Transition
+  //_INT1EP = 1; // Negative Transition
   _INT1IE = 1;
   
   // Configure the "False Trigger" Interrupt
@@ -435,17 +435,11 @@ void DoPostPulseProcess(void) {
     // Process the pulse data
   
   // Wait 40us for the conversions to complete (and the noise from the arc to dissipate)
-  __delay32(400);
+  //__delay32(400);
   
-  // Read the analog current level from external ADC
-  PIN_ADC_CHIP_SELECT = OLL_ADC_SELECT_CHIP;
-  global_data_A36582.imag_external_adc.filtered_adc_reading = SendAndReceiveSPI(0, ETM_SPI_PORT_2);
-  dan_test_ext = global_data_A36582.imag_external_adc.filtered_adc_reading;
-  PIN_ADC_CHIP_SELECT = !OLL_ADC_SELECT_CHIP;
-  PIN_ADC_CONVERT = !OLL_ADC_START_CONVERSION;
-  PIN_OUT_TP_F = 0;
   
   // Read the analog current level from internal ADC
+  // DPARKRER this should be ~zero with the new timing strategy
   global_data_A36582.imag_internal_adc.filtered_adc_reading = (ADCBUF0 << 4);
   dan_test_int = global_data_A36582.imag_internal_adc.filtered_adc_reading;
   //_LATF6 = 0;
@@ -529,8 +523,9 @@ void DoPostPulseProcess(void) {
   }
 	
   // Filter the ADC current readings
-  if (!_STATUS_ARC_DETECTED) {
-    if (_STATUS_HIGH_ENERGY) {
+  _STATUS_HIGH_ENERGY = global_data_A36582.sample_energy_mode;
+  if (!_STATUS_ARC_DETECTED) { 
+    if (global_data_A36582.sample_energy_mode) {
       global_data_A36582.filt_int_adc_high = RCFilterNTau(global_data_A36582.filt_int_adc_high,
 							  global_data_A36582.imag_internal_adc.reading_scaled_and_calibrated,
 							  RC_FILTER_64_TAU);
@@ -571,7 +566,7 @@ void __attribute__((interrupt, shadow, no_auto_psv)) _INT1Interrupt(void) {
   /*
     A sample trigger has been received
   */ 
-
+  /*
   Nop(); //100ns
   Nop(); //200ns
   Nop(); //300ns
@@ -582,29 +577,14 @@ void __attribute__((interrupt, shadow, no_auto_psv)) _INT1Interrupt(void) {
   Nop(); //800ns
   Nop(); //900ns
   Nop(); //1000ns
-  
+  */
   // Trigger the internal ADC to start conversion
   _SAMP = 0;  // There Appears to be a delay of ~3 ADC Clocks between this and the sample being held (and the conversion starting)
               // I think the ADC clock is running if the ADC is on, therefor we have a sampleing error of up to +/- 1/2 ADC Clock.  Ugh!!!
-  PIN_OUT_TP_F = 1;
   //_LATF6 = 1;
   // DPARKER delay until we are in the middle of the current pulse to sample
-  Nop();
-  Nop();
-  Nop();
-  Nop();
-  Nop();
-  Nop();
-  Nop();
-  Nop();
-  Nop();
-  Nop();
 
-  // Trigger the external ADC to start conversion
-  PIN_ADC_CONVERT = OLL_ADC_START_CONVERSION;
-
-
-  global_data_A36582.sample_energy_mode = _STATUS_HIGH_ENERGY;
+  global_data_A36582.sample_energy_mode = etm_can_next_pulse_level;
   global_data_A36582.sample_index = etm_can_next_pulse_count;
   global_data_A36582.sample_complete = 1;
 
@@ -613,25 +593,38 @@ void __attribute__((interrupt, shadow, no_auto_psv)) _INT1Interrupt(void) {
   if ((TMR4 <= MINIMUM_PULSE_PERIOD_T4) && (_T4IF == 0)) {
     global_data_A36582.minimum_pulse_period_fault_count++;
   }
-
   _T4IF = 0;
   TMR4 = 0;
+  
+
+  // Wait for the pulse energy to dissipate
+  __delay32(150);
+
+  // Read the data from port
+  PIN_OUT_TP_F = 1;
+  PIN_ADC_CHIP_SELECT = OLL_ADC_SELECT_CHIP;
+  global_data_A36582.imag_external_adc.filtered_adc_reading = SendAndReceiveSPI(0, ETM_SPI_PORT_2);
+  dan_test_ext = global_data_A36582.imag_external_adc.filtered_adc_reading;
+  PIN_ADC_CHIP_SELECT = !OLL_ADC_SELECT_CHIP;
+  PIN_OUT_TP_F = 0;
+
   _INT1IF = 0;
-  PIN_OUT_TP_D = 0;
 }
   
 
 /*
   Figure out if there was a pulse without a trigger
-  The trigger pulse should come before the current pulse
-  _T4IF will be cleared and TMR4 will be set to zero in the trigger interrupt
-  This will detect detect a pulse without a trigger being present by checking those two 
+  The trigger pulse is a sample pulse so it comes in the middle of current pulse.
+  We should wait for 10us After this is entered.  If there has not been a trigger pulse durring that time 
+  then it was a false tirgger
 */
 void __attribute__((interrupt, no_auto_psv)) _INT3Interrupt(void) {
   // There was trigger on INT3
   _INT3IF = 0;
+  __delay32(100); // wait for 10us
 
-  if (_T4IF || (TMR4 > 20)) {
+  if (!global_data_A36582.sample_complete) {
+    // There was a current pulse without a sample trigger within the next 10us
     global_data_A36582.pulse_with_no_trigger_counter++;
     global_data_A36582.false_trigger_counter++;
     ResetPulseLatches();
