@@ -165,8 +165,8 @@ void DoA36582(void) {
     local_debug_data.debug_A = global_data_A36582.pulse_with_no_trigger_counter;
     local_debug_data.debug_B = global_data_A36582.minimum_pulse_period_fault_count;
     local_debug_data.debug_C = global_data_A36582.false_trigger_counter;
-    local_debug_data.debug_D = global_data_A36582.over_current_arc_count;
-    local_debug_data.debug_E = global_data_A36582.under_current_arc_count;
+    local_debug_data.debug_D = global_data_A36582.imag_external_adc.filtered_adc_reading;
+    local_debug_data.debug_E = global_data_A36582.imag_internal_adc.filtered_adc_reading;
     
 
     // Update tthe false trigger counter
